@@ -87,6 +87,16 @@
    measurement/mount unit for a virtualizer without changing the column gap. */
 .flowItem {
   min-width: 0;
+  /* Streaming cost: each published token dirties the column, and every
+     follow-tail metrics read flushes layout for all rows still in the DOM
+     (`hidden="until-found"` keeps them searchable). Off-screen rows
+     contribute nothing to the visible frame, so skip their layout and paint
+     until they approach the viewport; the `auto` intrinsic size remembers
+     each row's last real height, keeping scrollHeight/scrollbar stable.
+     Rows near the reader still measure normally, so fold batches and paging
+     compensation see committed geometry. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
 }
 
 /* Bottom room: sized by the viewport owner while rows above the reader close,

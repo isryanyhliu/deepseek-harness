@@ -142,6 +142,18 @@ describe('lifecycle cascade (one axis)', () => {
     dispose()
     expect(core.isLive(entry)).toBe(false)
   })
+
+  it('isLive is false for entries retired by a declaration cascade', () => {
+    const core = new SlotCore()
+    const disposeFrame = mountFrame(core)
+    core.register(
+      { name: 'test.single', children: { 'test.child': { kind: 'single', scope: 'root' } } }, Comp as never)
+    core.register({ name: 'test.child' }, Comp)
+    const childEntry = core.entries('test.child')[0]!
+    expect(core.isLive(childEntry)).toBe(true)
+    disposeFrame()
+    expect(core.isLive(childEntry)).toBe(false)
+  })
 })
 
 describe('kind semantics', () => {

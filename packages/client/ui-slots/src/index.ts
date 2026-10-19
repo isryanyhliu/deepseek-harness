@@ -1006,6 +1006,13 @@ export class SlotCore {
    * (disposal authority remains with the registrant).
    */
   private abdicated = new WeakSet<StoredEntry>()
+  /**
+   * Entries currently on the ledger, mirrored from every record's entries
+   * array so {@link SlotCore.isLive} answers without scanning the registry.
+   * Written at registration, cleared on disposal and on the release cascade;
+   * abdication keeps membership (the registration stays on the ledger).
+   */
+  private liveEntries = new WeakSet<StoredEntry>()
   private entryErrorListeners
     = new Set<(key: string, registration: StoredEntry | StoredFactory, error: unknown, info: { abdicated: boolean }) => void>()
 
@@ -1287,6 +1294,7 @@ export class SlotCore {
       ? (a, b) => ((a.options.priority ?? 0) - (b.options.priority ?? 0)) || ((a.options.order ?? 0) - (b.options.order ?? 0))
       : (a, b) => (a.options.priority ?? 0) - (b.options.priority ?? 0))
     rec.entries = next
+    this.liveEntries.add(entry)
     this.markDirty(options.name, rec)
     if (options.children) {
       const declarations: [key: string, record: SlotRecord][] = []
@@ -1310,6 +1318,7 @@ export class SlotCore {
     return () => {
       if (!rec.entries.includes(entry)) return
       rec.entries = rec.entries.filter(e => e !== entry)
+      this.liveEntries.delete(entry)
       this.markDirty(options.name, rec)
       this.releaseEntry(entry)
     }
@@ -1323,10 +1332,7 @@ export class SlotCore {
    * @returns false once the entry's registration was disposed.
    */
   isLive(entry: StoredEntry): boolean {
-    for (const rec of this.records.values()) {
-      if (rec.entries.includes(entry)) return true
-    }
-    return false
+    return this.liveEntries.has(entry)
   }
 
   /**
@@ -1607,6 +1613,7 @@ export class SlotCore {
       childRec.parent = undefined
       childRec.declarationEpoch += 1
       childRec.entries = NO_ENTRIES
+      for (const dead of doomed) this.liveEntries.delete(dead)
       this.markDirty(childKey, childRec)
       this.notifyDeclaration(childRec)
       for (const dead of doomed) this.releaseEntry(dead)
